@@ -9,8 +9,8 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
-        <module>websocket-server</module>
-        <module>websocket-client</module>
+        <module>server</module>
+        <module>client-part1</module>
         <module>websocket-common</module>
     </modules>
 

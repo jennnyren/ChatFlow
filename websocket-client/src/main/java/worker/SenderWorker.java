@@ -68,37 +68,6 @@ public class SenderWorker implements Runnable {
             Thread.currentThread().interrupt();
         }
     }
-    /**
-    public void run() {
-        int sentRounds = 0;
-
-        try {
-            while (running && sentRounds < roundsToSend) {
-                MessageRound round = roundQueue.poll(100, TimeUnit.MILLISECONDS);
-
-                if (round == null) {
-                    continue;
-                }
-
-                boolean success = sendRound(round);
-
-                if (success) {
-                    successCount.addAndGet(round.getMessageCount());
-                    sentRounds++;
-                } else {
-                    if (round.canRetry()) {
-                        round.incrementRetryCount();
-                        retryQueue.offer(round);
-                    } else {
-                        failureCount.addAndGet(round.getMessageCount());
-                    }
-                }
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-     **/
 
     private boolean sendRound(MessageRound round) {
         try {

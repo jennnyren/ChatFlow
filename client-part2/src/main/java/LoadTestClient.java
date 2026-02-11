@@ -1,4 +1,5 @@
 import generator.MessageGenerator;
+import metrics.MetricsCollector;
 import metrics.PerformanceMetrics;
 import model.MessageRound;
 import websocket.ConnectionPool;
@@ -26,12 +27,12 @@ public class LoadTestClient {
         System.out.println("Server: ws://" + SERVER_HOST + ":" + SERVER_PORT);
         System.out.println("----------------------------------------\n");
 
-        performLittlesLawAnalysis();
+        //performLittlesLawAnalysis();
 
         LoadTestClient client = new LoadTestClient();
-        client.runWarmupPhase();
+        //client.runWarmupPhase();
 
-        //client.runMainPhase();
+        client.runMainPhase();
     }
 
     private static void performLittlesLawAnalysis() throws Exception {
@@ -58,6 +59,7 @@ public class LoadTestClient {
         avgRttNs /= samples.length;
         double avgRttMs = avgRttNs / 1_000_000.0;
 
+        // need to fix
         int avgMessagesPerRound = 6;
         int concurrentConnections = MAIN_THREADS;
         double predictedThroughput = (concurrentConnections / (avgRttMs * avgMessagesPerRound)) * 1000;
@@ -78,7 +80,8 @@ public class LoadTestClient {
         long startTime = System.currentTimeMillis();
         int warmupTotal = WARMUP_THREADS * WARMUP_MESSAGES_PER_THREAD;
         BlockingQueue<MessageRound> warmupQueue = new LinkedBlockingQueue<>(10000);
-        ConnectionPool warmupPool = new ConnectionPool(SERVER_HOST, SERVER_PORT);
+        MetricsCollector warmupMetrics = new MetricsCollector();
+        ConnectionPool warmupPool = new ConnectionPool(SERVER_HOST, SERVER_PORT, warmupMetrics);
         String[] roomIds = new String[20]; // Assuming rooms 1-20
         for (int i = 0; i < 20; i++) {
             roomIds[i] = String.valueOf(i + 1);
@@ -95,9 +98,6 @@ public class LoadTestClient {
         int totalRounds = warmupQueue.size();
         int roundsPerThread = (totalRounds + WARMUP_THREADS - 1) / WARMUP_THREADS;
 
-        System.out.println("DEBUG: Queue has " + warmupQueue.size() + " rounds");
-        System.out.println("DEBUG: Workers expect " + (roundsPerThread * WARMUP_THREADS) + " total rounds");
-
         ExecutorService warmupExecutor = Executors.newFixedThreadPool(WARMUP_THREADS);
         List<Future<?>> warmupFutures = new ArrayList<>();
 
@@ -106,16 +106,11 @@ public class LoadTestClient {
         for (int i = 0; i < WARMUP_THREADS; i++) {
             SenderWorker worker = new SenderWorker(
                     warmupQueue, warmupRetryQueue, warmupPool,
-                    warmupSuccess, warmupFailure, roundsPerThread
+                    warmupSuccess, warmupFailure, roundsPerThread, warmupMetrics
             );
             warmupFutures.add(warmupExecutor.submit(worker));
         }
 
-        /**
-        for (Future<?> future : warmupFutures) {
-            future.get();
-        }
-         **/
         for (Future<?> future : warmupFutures) {
             try {
                 future.get(10, TimeUnit.SECONDS); // 10 second timeout per worker
@@ -132,13 +127,17 @@ public class LoadTestClient {
         long warmupDuration = System.currentTimeMillis() - startTime;
         double warmupThroughput = (warmupSuccess.get() * 1000.0) / warmupDuration;
 
-        System.out.println("Success count: " + warmupSuccess.get());
-        System.out.println("Failure count: " + warmupFailure.get());
-        System.out.println("Warmup Complete!");
-        System.out.println("Sent: " + warmupSuccess.get() + " messages");
-        System.out.println("Time: " + warmupDuration + " ms");
-        System.out.println("Throughput: " + String.format("%.2f", warmupThroughput) + " msg/sec\n");
+        PerformanceMetrics metrics = new PerformanceMetrics();
+        metrics.setSuccessfulMessages(warmupSuccess.get());
+        metrics.setFailedMessages(warmupFailure.get());
+        metrics.setTotalRuntimeMs(warmupDuration);
+        metrics.setThroughput(warmupThroughput);
+        metrics.setConnectionCount(warmupPool.getConnectionCount());
+        metrics.setReconnectCount(warmupPool.getReconnectCount());
+        metrics.setActiveConnections(warmupPool.getActiveConnectionCount());
+        metrics.printReport();
     }
+
 
     private void runMainPhase() throws Exception {
         System.out.println("MAIN PHASE");
@@ -147,7 +146,8 @@ public class LoadTestClient {
 
         BlockingQueue<MessageRound> roundQueue = new LinkedBlockingQueue<>(20000);
         BlockingQueue<MessageRound> retryQueue = new LinkedBlockingQueue<>(5000);
-        ConnectionPool connectionPool = new ConnectionPool(SERVER_HOST, SERVER_PORT);
+        MetricsCollector metricsCollector = new MetricsCollector();
+        ConnectionPool connectionPool = new ConnectionPool(SERVER_HOST, SERVER_PORT, metricsCollector);
 
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failureCount = new AtomicInteger(0);
@@ -166,7 +166,7 @@ public class LoadTestClient {
         for (int i = 0; i < MAIN_THREADS; i++) {
             SenderWorker worker = new SenderWorker(
                     roundQueue, retryQueue, connectionPool,
-                    successCount, failureCount, roundsPerThread
+                    successCount, failureCount, roundsPerThread, metricsCollector
             );
             workers.add(worker);
             senderExecutor.submit(worker);
@@ -177,7 +177,7 @@ public class LoadTestClient {
 
         for (int i = 0; i < 4; i++) {
             RetryWorker retryWorker = new RetryWorker(
-                    retryQueue, connectionPool, successCount, failureCount
+                    retryQueue, connectionPool, successCount, failureCount, metricsCollector
             );
             retryWorkers.add(retryWorker);
             retryExecutor.submit(retryWorker);
@@ -213,6 +213,15 @@ public class LoadTestClient {
         long totalRuntime = System.currentTimeMillis() - startTime;
         double throughput = (successCount.get() * 1000.0) / totalRuntime;
 
+        try {
+            metricsCollector.writeMetricsToCSV("load_test_metrics.csv");
+        } catch (Exception e) {
+            System.err.println("Error writing metrics to CSV: " + e.getMessage());
+        }
+
+        MetricsCollector.StatisticalAnalysis stats = metricsCollector.calculateStatistics();
+
+
         PerformanceMetrics metrics = new PerformanceMetrics();
         metrics.setSuccessfulMessages(successCount.get());
         metrics.setFailedMessages(failureCount.get());
@@ -221,8 +230,15 @@ public class LoadTestClient {
         metrics.setConnectionCount(connectionPool.getConnectionCount());
         metrics.setReconnectCount(connectionPool.getReconnectCount());
         metrics.setActiveConnections(connectionPool.getActiveConnectionCount());
-
         metrics.printReport();
+
+        try {
+            stats.printReport();
+        } catch (NullPointerException e) {
+            System.out.println("Message Type Distribution: Not available");
+        }
+
+        stats.printThroughputChart();
 
         connectionPool.closeAll();
     }

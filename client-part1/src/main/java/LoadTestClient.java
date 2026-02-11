@@ -29,9 +29,9 @@ public class LoadTestClient {
         //performLittlesLawAnalysis();
 
         LoadTestClient client = new LoadTestClient();
-        client.runWarmupPhase();
+        //client.runWarmupPhase();
 
-        //client.runMainPhase();
+        client.runMainPhase();
     }
 
     private static void performLittlesLawAnalysis() throws Exception {
@@ -56,20 +56,27 @@ public class LoadTestClient {
             avgRttNs += sample;
         }
         avgRttNs /= samples.length;
-        double avgRttMs = avgRttNs / 1_000_000.0;
+        double avgRttMs = avgRttNs / 1000000.0;
 
-        // need to fix
-        int avgMessagesPerRound = 6;
+        BlockingQueue<MessageRound> sampleQueue = new LinkedBlockingQueue<>();
+        MessageGenerator sampleGen = new MessageGenerator(sampleQueue, TOTAL_MESSAGES);
+        Thread sampleThread = new Thread(sampleGen);
+        sampleThread.start();
+        sampleThread.join();
+
+        int totalRounds = sampleQueue.size();
         int concurrentConnections = MAIN_THREADS;
-        double predictedThroughput = (concurrentConnections / (avgRttMs * avgMessagesPerRound)) * 1000;
+        double predictedThroughput = (concurrentConnections / (avgRttMs / 1000.0));
 
         System.out.println("----------------------------------------");
         System.out.println("Average RTT: " + String.format("%.2f", avgRttMs) + " ms");
-        System.out.println("Avg messages per round: " + avgMessagesPerRound);
+        System.out.println("Total rounds: " + totalRounds);
+        System.out.println("Total messages: " + TOTAL_MESSAGES);
+        System.out.println("Avg messages per round: " + String.format("%.2f", (double) TOTAL_MESSAGES / totalRounds));
         System.out.println("Concurrent connections: " + concurrentConnections);
-        System.out.println("Predicted throughput: " + String.format("%.2f", predictedThroughput) + " msg/sec");
-        System.out.println("Predicted time for 500K messages: " +
-                String.format("%.2f", TOTAL_MESSAGES / predictedThroughput) + " seconds");
+        System.out.println("Predicted throughput: " + String.format("%.2f", predictedThroughput) + " rounds/sec");
+        System.out.println("Predicted time for " + totalRounds + " rounds: " +
+                String.format("%.2f", totalRounds / predictedThroughput) + " seconds");
         System.out.println("----------------------------------------\n");
     }
 
@@ -95,9 +102,6 @@ public class LoadTestClient {
 
         int totalRounds = warmupQueue.size();
         int roundsPerThread = (totalRounds + WARMUP_THREADS - 1) / WARMUP_THREADS;
-
-        System.out.println("DEBUG: Queue has " + warmupQueue.size() + " rounds");
-        System.out.println("DEBUG: Workers expect " + (roundsPerThread * WARMUP_THREADS) + " total rounds");
 
         ExecutorService warmupExecutor = Executors.newFixedThreadPool(WARMUP_THREADS);
         List<Future<?>> warmupFutures = new ArrayList<>();
@@ -128,20 +132,24 @@ public class LoadTestClient {
         long warmupDuration = System.currentTimeMillis() - startTime;
         double warmupThroughput = (warmupSuccess.get() * 1000.0) / warmupDuration;
 
-        System.out.println("Success count: " + warmupSuccess.get());
-        System.out.println("Failure count: " + warmupFailure.get());
-        System.out.println("Warmup Complete!");
-        System.out.println("Sent: " + warmupSuccess.get() + " messages");
-        System.out.println("Time: " + warmupDuration + " ms");
-        System.out.println("Throughput: " + String.format("%.2f", warmupThroughput) + " msg/sec\n");
+        PerformanceMetrics metrics = new PerformanceMetrics();
+        metrics.setSuccessfulMessages(warmupSuccess.get());
+        metrics.setFailedMessages(warmupFailure.get());
+        metrics.setTotalRuntimeMs(warmupDuration);
+        metrics.setThroughput(warmupThroughput);
+        metrics.setConnectionCount(warmupPool.getConnectionCount());
+        metrics.setReconnectCount(warmupPool.getReconnectCount());
+        metrics.setActiveConnections(warmupPool.getActiveConnectionCount());
+        metrics.printReport();
     }
+
 
     private void runMainPhase() throws Exception {
         System.out.println("MAIN PHASE");
 
         long startTime = System.currentTimeMillis();
 
-        BlockingQueue<MessageRound> roundQueue = new LinkedBlockingQueue<>(20000);
+        BlockingQueue<MessageRound> roundQueue = new LinkedBlockingQueue<>(200000);
         BlockingQueue<MessageRound> retryQueue = new LinkedBlockingQueue<>(5000);
         ConnectionPool connectionPool = new ConnectionPool(SERVER_HOST, SERVER_PORT);
 
@@ -151,6 +159,12 @@ public class LoadTestClient {
         MessageGenerator generator = new MessageGenerator(roundQueue, TOTAL_MESSAGES);
         Thread generatorThread = new Thread(generator);
         generatorThread.start();
+
+        /**
+         //this logic does not work
+        int totalRounds = roundQueue.size();
+        int roundsPerThread = (totalRounds + MAIN_THREADS - 1) / MAIN_THREADS;
+         **/
 
         int avgMessagesPerRound = 6; // 1 JOIN + ~4 TEXT + 1 LEAVE
         int totalRounds = TOTAL_MESSAGES / avgMessagesPerRound;
@@ -217,7 +231,6 @@ public class LoadTestClient {
         metrics.setConnectionCount(connectionPool.getConnectionCount());
         metrics.setReconnectCount(connectionPool.getReconnectCount());
         metrics.setActiveConnections(connectionPool.getActiveConnectionCount());
-
         metrics.printReport();
 
         connectionPool.closeAll();

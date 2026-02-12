@@ -131,37 +131,32 @@ public class MetricsCollector {
         public Map<Long, Integer> throughputOverTime;
 
         public void printReport() {
-            System.out.println("\n========================================");
-            System.out.println("     STATISTICAL ANALYSIS REPORT");
-            System.out.println("========================================");
+            System.out.println("STATISTICAL ANALYSIS REPORT");
+            System.out.println("-------------------------------------");
             System.out.println("Response Time Statistics:");
-            System.out.println("  Mean:           " + String.format("%.2f", meanLatency) + " ms");
-            System.out.println("  Median:         " + String.format("%.2f", medianLatency) + " ms");
-            System.out.println("  95th Percentile: " + p95Latency + " ms");
-            System.out.println("  99th Percentile: " + p99Latency + " ms");
-            System.out.println("  Min:            " + minLatency + " ms");
-            System.out.println("  Max:            " + maxLatency + " ms");
+            System.out.println("Mean: " + String.format("%.2f", meanLatency) + " ms");
+            System.out.println("Median: " + String.format("%.2f", medianLatency) + " ms");
+            System.out.println("95th Percentile: " + p95Latency + " ms");
+            System.out.println("99th Percentile: " + p99Latency + " ms");
+            System.out.println("Min: " + minLatency + " ms");
+            System.out.println("Max: " + maxLatency + " ms");
 
             System.out.println("\nMessage Type Distribution:");
             for (Map.Entry<String, Integer> entry : messageTypeDistribution.entrySet()) {
                 double percentage = (entry.getValue() * 100.0) / totalMessages;
-                System.out.println("  " + entry.getKey() + ": " + entry.getValue() +
+                System.out.println("" + entry.getKey() + ": " + entry.getValue() +
                         " (" + String.format("%.1f", percentage) + "%)");
             }
 
             System.out.println("\nThroughput Per Room:");
             for (Map.Entry<String, Integer> entry : roomThroughput.entrySet()) {
-                System.out.println("  Room " + entry.getKey() + ": " + entry.getValue() + " messages");
+                System.out.println("Room " + entry.getKey() + ": " + entry.getValue() + " messages");
             }
-
-            System.out.println("========================================\n");
         }
 
-        // UPDATE: Generate simple ASCII chart for throughput over time
         public void printThroughputChart() {
-            System.out.println("\n========================================");
-            System.out.println("  THROUGHPUT OVER TIME (msg/10sec)");
-            System.out.println("========================================");
+            System.out.println("\n------------------------------------");
+            System.out.println("THROUGHPUT OVER TIME (msg/10sec)");
 
             if (throughputOverTime.isEmpty()) {
                 System.out.println("No data available");
@@ -185,10 +180,7 @@ public class MetricsCollector {
                 System.out.printf("%3d-%3ds |%-" + chartWidth + "s| %d msg/s%n",
                         bucket * 10, (bucket + 1) * 10, bar, count / 10);
             }
-
-            System.out.println("========================================\n");
+            System.out.println("-----------------------------------\n");
         }
     }
-
-
 }

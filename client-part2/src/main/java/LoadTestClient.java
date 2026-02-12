@@ -31,7 +31,6 @@ public class LoadTestClient {
 
         LoadTestClient client = new LoadTestClient();
         //client.runWarmupPhase();
-
         client.runMainPhase();
     }
 
@@ -82,7 +81,8 @@ public class LoadTestClient {
         BlockingQueue<MessageRound> warmupQueue = new LinkedBlockingQueue<>(10000);
         MetricsCollector warmupMetrics = new MetricsCollector();
         ConnectionPool warmupPool = new ConnectionPool(SERVER_HOST, SERVER_PORT, warmupMetrics);
-        String[] roomIds = new String[20]; // Assuming rooms 1-20
+
+        String[] roomIds = new String[20];
         for (int i = 0; i < 20; i++) {
             roomIds[i] = String.valueOf(i + 1);
         }
@@ -100,7 +100,6 @@ public class LoadTestClient {
 
         ExecutorService warmupExecutor = Executors.newFixedThreadPool(WARMUP_THREADS);
         List<Future<?>> warmupFutures = new ArrayList<>();
-
         BlockingQueue<MessageRound> warmupRetryQueue = new LinkedBlockingQueue<>();
 
         for (int i = 0; i < WARMUP_THREADS; i++) {
@@ -127,6 +126,14 @@ public class LoadTestClient {
         long warmupDuration = System.currentTimeMillis() - startTime;
         double warmupThroughput = (warmupSuccess.get() * 1000.0) / warmupDuration;
 
+        // Write warmup metrics to CSV
+        try {
+            warmupMetrics.writeMetricsToCSV("warmup_metrics.csv");
+        } catch (Exception e) {
+            System.err.println("Error writing warmup metrics to CSV: " + e.getMessage());
+        }
+        MetricsCollector.StatisticalAnalysis stats = warmupMetrics.calculateStatistics();
+
         PerformanceMetrics metrics = new PerformanceMetrics();
         metrics.setSuccessfulMessages(warmupSuccess.get());
         metrics.setFailedMessages(warmupFailure.get());
@@ -136,6 +143,14 @@ public class LoadTestClient {
         metrics.setReconnectCount(warmupPool.getReconnectCount());
         metrics.setActiveConnections(warmupPool.getActiveConnectionCount());
         metrics.printReport();
+
+        try {
+            stats.printReport();
+        } catch (NullPointerException e) {
+            System.out.println("Message Type Distribution: Not available");
+        }
+
+        stats.printThroughputChart();
     }
 
 
@@ -214,7 +229,7 @@ public class LoadTestClient {
         double throughput = (successCount.get() * 1000.0) / totalRuntime;
 
         try {
-            metricsCollector.writeMetricsToCSV("load_test_metrics.csv");
+            metricsCollector.writeMetricsToCSV("main_metrics.csv");
         } catch (Exception e) {
             System.err.println("Error writing metrics to CSV: " + e.getMessage());
         }

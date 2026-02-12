@@ -86,7 +86,7 @@ public class MessageGenerator implements Runnable {
         );
         round.addMessage(joinMessage);
 
-        int numTextMessages = random.nextInt(10) + 1;
+        int numTextMessages = random.nextInt(30) + 1;
         for (int i = 0; i < numTextMessages; i++) {
             String messageText = MESSAGE_GROUP[random.nextInt(MESSAGE_GROUP.length)];
             ChatMessage textMessage = new ChatMessage(

@@ -19,7 +19,7 @@ public class PerformanceMetrics {
 
     public void printReport() {
         System.out.println("----------------------------------------");
-        System.out.println("       PERFORMANCE METRICS REPORT       ");
+        System.out.println("PERFORMANCE METRICS REPORT       ");
         System.out.println("Successful Messages: " + successfulMessages);
         System.out.println("Failed Messages: " + failedMessages);
         System.out.println("Total Runtime: " + totalRuntimeMs + " ms (" +

@@ -29,6 +29,5 @@ public class PerformanceMetrics {
         System.out.println("Total Connections: " + ConnectionCount);
         System.out.println("Reconnections: " + reconnectCount);
         System.out.println("Active Connections: " + activeConnections);
-        System.out.println("----------------------------------------\n");
     }
 }

@@ -1,4 +1,4 @@
-# ChatFlow - Complete Implementation Guide
+# ChatFlow Implementation Guide
 
 ## Table of Contents
 1. [Overview](#overview)

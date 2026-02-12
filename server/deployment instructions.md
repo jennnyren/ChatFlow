@@ -1,119 +1,140 @@
-## AWS EC2 Deployment
+# ChatFlow server deployment instructions
+
+## Table of Contents
+
+1. [EC2 Instance Setup](#ec2-instance-setup)
+2. [Server Environment Configuration](#server-environment-configuration)
+3. [Application Deployment](#application-deployment)
+---
+
+## EC2 Instance Setup
 
 ### 1. Launch EC2 Instance
 
-#### Instance Configuration
-- **AMI**: Amazon Linux 2023 or Ubuntu 22.04
-- **Instance Type**: t2.micro (free tier eligible)
-- **Region**: us-west-2 (Oregon)
-- **Storage**: 8 GB (default)
+1. Log in to AWS Console and navigate to EC2
+2. Click "Launch Instance"
+3. Configure the instance:
+    - **Name**: `chatflow-server`
+    - **AMI**: Amazon Linux 2023 or Ubuntu 22.04 LTS (free tier eligible)
+    - **Instance Type**: `t3.micro` (free tier eligible)
+    - **Key pair**: Select existing or create new key pair
+    - **Network settings**:
+        - Allow SSH traffic from your IP
+        - Allow HTTP traffic (port 80)
+        - Allow HTTPS traffic (port 443)
+        - Add custom TCP rule for port 8080 (WebSocket server)
 
-#### Security Group Rules
-| Type | Protocol | Port Range | Source |
-|------|----------|------------|--------|
-| SSH | TCP | 22 | Your IP |
-| HTTP | TCP | 8080 | 0.0.0.0/0 |
-| Custom TCP | TCP | 8080 | 0.0.0.0/0 |
-
-### 2. Connect to EC2
-```bash
-# Download your key pair (.pem file)
-chmod 400 your-key.pem
-
-# Connect via SSH
-ssh -i your-key.pem ec2-user@<EC2-PUBLIC-IP>
+4. Configure Security Group with the following inbound rules:
+```
+Type            Protocol    Port Range    Source
+SSH             TCP         22            Your IP/0.0.0.0/0
+HTTP            TCP         80            0.0.0.0/0
+HTTPS           TCP         443           0.0.0.0/0
+Custom TCP      TCP         8080          0.0.0.0/0
 ```
 
-### 3. Install Java and Maven on EC2
+5. Configure storage: 8 GB (default free tier)
+6. Click "Launch Instance"
+
+### 2. Connect to EC2 Instance
 ```bash
-# Update system
-sudo yum update -y  # Amazon Linux
-# OR
-sudo apt update && sudo apt upgrade -y  # Ubuntu
+# Make key file read-only
+chmod 400 your-key-pair.pem
+# Connect via SSH
+ssh -i your-key-pair.pem ec2-user@<EC2_PUBLIC_IP>
+# OR for Ubuntu
+ssh -i your-key-pair.pem ubuntu@<EC2_PUBLIC_IP>
+```
+---
 
-# Install Java 11
-sudo yum install -y java-11-amazon-corretto  # Amazon Linux
-# OR
-sudo apt install -y openjdk-11-jdk  # Ubuntu
+## Server Environment Configuration
+### 1. Update System Packages
+**For Amazon Linux 2023:**
+```bash
+sudo yum update -y
+```
 
-# Install Maven
-sudo yum install -y maven  # Amazon Linux
-# OR
-sudo apt install -y maven  # Ubuntu
+**For Ubuntu:**
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
 
-# Verify
+### 2. Install Java 17
+**For Amazon Linux 2023:**
+```bash
+sudo yum install java-17-amazon-corretto-devel -y
+```
+**For Ubuntu:**
+```bash
+sudo apt install openjdk-17-jdk -y
+```
+
+Verify installation:
+```bash
 java -version
+javac -version
+```
+
+### 3. Install Maven (if building from source)
+**For Amazon Linux 2023:**
+```bash
+sudo yum install maven -y
+```
+
+**For Ubuntu:**
+```bash
+sudo apt install maven -y
+```
+
+Verify installation:
+```bash
 mvn -version
 ```
 
-### 4. Deploy Server to EC2
-```bash
-# On your local machine, build the JAR
-cd websocket-chat-server
-mvn clean package
+---
 
-# Copy JAR to EC2
-scp -i your-key.pem target/websocket-chat-server-1.0.0.jar \
-    ec2-user@<EC2-PUBLIC-IP>:~/
+## Application Deployment
 
-# SSH into EC2
-ssh -i your-key.pem ec2-user@<EC2-PUBLIC-IP>
+### Method 1: Deploy Pre-built JAR
 
-# Run the server
-java -jar websocket-chat-server-1.0.0.jar
-```
-
-### 5. Run as Background Service
-```bash
-# Create systemd service
-sudo nano /etc/systemd/system/chatserver.service
-```
-
-Add content:
-```ini
-[Unit]
-Description=WebSocket Chat Server
-After=network.target
-
-[Service]
-Type=simple
-User=ec2-user
-WorkingDirectory=/home/ec2-user
-ExecStart=/usr/bin/java -jar /home/ec2-user/websocket-chat-server-1.0.0.jar
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable chatserver
-sudo systemctl start chatserver
-sudo systemctl status chatserver
-```
-
-### 6. Test Deployment
+1. **Transfer JAR file to EC2**:
 ```bash
 # From your local machine
-curl http://<EC2-PUBLIC-IP>:8080/health
-
-# WebSocket test
-wscat -c ws://<EC2-PUBLIC-IP>:8080/chat/1
+scp -i your-key-pair.pem target/websocket-chat-server.jar ec2-user@<EC2_PUBLIC_IP>:~/
 ```
 
-### 7. Update Client Configuration
-```java
-// In ChatClient.java
-private static final String SERVER_URL = "ws://<EC2-PUBLIC-IP>:8080";
-```
-
-Rebuild and run client:
+2. **Create application directory on EC2**:
 ```bash
+sudo mkdir -p /opt/websocket-server
+sudo mv ~/websocket-chat-server.jar /opt/websocket-server/
+sudo chown -R ec2-user:ec2-user /opt/websocket-server
+```
+
+### Method 2: Build from Source on EC2
+
+1. **Clone or transfer source code**:
+```bash
+# Create app directory
+mkdir -p ~/websocket-server
+cd ~/websocket-server
+
+# Upload source files via SCP
+# From local machine:
+scp -i your-key-pair.pem -r /path/to/project/* ec2-user@<EC2_PUBLIC_IP>:~/websocket-server/
+```
+
+2. **Build the application**:
+```bash
+cd ~/websocket-server
 mvn clean package
-java -jar target/websocket-chat-client-1.0.0.jar
+
+# Move JAR to deployment directory
+sudo mkdir -p /opt/websocket-server
+sudo cp target/websocket-chat-server*.jar /opt/websocket-server/websocket-chat-server.jar
+sudo chown -R ec2-user:ec2-user /opt/websocket-server
 ```
 
 ---
+
+Chatflow server is deployed!

@@ -128,7 +128,7 @@ public class LoadTestClient {
 
         // Write warmup metrics to CSV
         try {
-            warmupMetrics.writeMetricsToCSV("warmup_metrics.csv");
+            warmupMetrics.writeMetricsToCSV("client-part2/warmup_metrics.csv");
         } catch (Exception e) {
             System.err.println("Error writing warmup metrics to CSV: " + e.getMessage());
         }
@@ -229,7 +229,7 @@ public class LoadTestClient {
         double throughput = (successCount.get() * 1000.0) / totalRuntime;
 
         try {
-            metricsCollector.writeMetricsToCSV("main_metrics.csv");
+            metricsCollector.writeMetricsToCSV("client-part2/main_metrics.csv");
         } catch (Exception e) {
             System.err.println("Error writing metrics to CSV: " + e.getMessage());
         }

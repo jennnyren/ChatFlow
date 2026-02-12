@@ -1,6 +1,6 @@
 package metrics;
-import model.MessageMetric;
 
+import model.MessageMetric;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;

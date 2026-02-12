@@ -59,11 +59,6 @@ public class MessageValidator {
         if (username.length() < 3 || username.length() >20) {
             return new ValidationResult(false, "Username must be between 3 and 20 characters.");
         }
-        /**
-        if (!username.matches("[a-zA-Z0-9_-]")) {
-            return new ValidationResult(false, "Username must be alphanumeric characters.");
-        }
-         **/
         return new ValidationResult(true, "Valid");
     }
 
@@ -97,6 +92,4 @@ public class MessageValidator {
         }
         return new ValidationResult(true, "Valid");
     }
-
-
 }

@@ -2,7 +2,6 @@ package generator;
 
 import model.ChatMessage;
 import model.MessageRound;
-
 import java.time.Instant;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;

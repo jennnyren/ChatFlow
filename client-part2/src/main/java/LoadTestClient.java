@@ -27,10 +27,11 @@ public class LoadTestClient {
         System.out.println("Server: ws://" + SERVER_HOST + ":" + SERVER_PORT);
         System.out.println("----------------------------------------\n");
 
-        //performLittlesLawAnalysis();
+        performLittlesLawAnalysis();
 
         LoadTestClient client = new LoadTestClient();
-        //client.runWarmupPhase();
+        client.runWarmupPhase();
+
         client.runMainPhase();
     }
 
@@ -72,7 +73,6 @@ public class LoadTestClient {
                 String.format("%.2f", TOTAL_MESSAGES / predictedThroughput) + " seconds");
         System.out.println("----------------------------------------\n");
     }
-
 
     private void runWarmupPhase() throws Exception {
         System.out.println("WARMUP PHASE");
@@ -152,7 +152,6 @@ public class LoadTestClient {
 
         stats.printThroughputChart();
     }
-
 
     private void runMainPhase() throws Exception {
         System.out.println("MAIN PHASE");

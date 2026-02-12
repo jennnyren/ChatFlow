@@ -15,7 +15,6 @@ public class LoadTestClient {
     private static final int WARMUP_THREADS = 32;
     private static final int WARMUP_MESSAGES_PER_THREAD = 1000;
     private static final int MAIN_THREADS = 64;
-
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 8080;
 
@@ -26,10 +25,10 @@ public class LoadTestClient {
         System.out.println("Server: ws://" + SERVER_HOST + ":" + SERVER_PORT);
         System.out.println("----------------------------------------\n");
 
-        //performLittlesLawAnalysis();
+        performLittlesLawAnalysis();
 
         LoadTestClient client = new LoadTestClient();
-        //client.runWarmupPhase();
+        client.runWarmupPhase();
 
         client.runMainPhase();
     }
@@ -79,7 +78,6 @@ public class LoadTestClient {
                 String.format("%.2f", totalRounds / predictedThroughput) + " seconds");
         System.out.println("----------------------------------------\n");
     }
-
 
     private void runWarmupPhase() throws Exception {
         System.out.println("WARMUP PHASE");
@@ -143,7 +141,6 @@ public class LoadTestClient {
         metrics.printReport();
     }
 
-
     private void runMainPhase() throws Exception {
         System.out.println("MAIN PHASE");
 
@@ -152,10 +149,8 @@ public class LoadTestClient {
         BlockingQueue<MessageRound> roundQueue = new LinkedBlockingQueue<>(200000);
         BlockingQueue<MessageRound> retryQueue = new LinkedBlockingQueue<>(5000);
         ConnectionPool connectionPool = new ConnectionPool(SERVER_HOST, SERVER_PORT);
-
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failureCount = new AtomicInteger(0);
-
         MessageGenerator generator = new MessageGenerator(roundQueue, TOTAL_MESSAGES);
         Thread generatorThread = new Thread(generator);
         generatorThread.start();

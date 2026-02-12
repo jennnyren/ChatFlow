@@ -95,6 +95,7 @@ public class SenderWorker implements Runnable {
             return false;
         }
     }
+
     public void shutdown() {
         running = false;
     }
